@@ -15,6 +15,9 @@ const warningRoutes = require("./modules/warnings/warningsRoutes");
 const reliefRoutes = require("./modules/relief/reliefRoutes");
 const incidentRoutes = require("./modules/incident-reports/incidentReportRoutes");
 const assistanceRoutes = require("./modules/assistance/assistanceRoutes");
+const reliefRequestRoutes = require("./modules/relief/reliefRequestRoutes");
+const announcementRoutes = require("./modules/announcements/announcementRoutes");
+const supportRoutes = require("./modules/support/supportRoutes");
 const aiRoutes = require("./modules/ai-chat/aiChatRoutes");
 const weatherRoutes = require("./modules/map-warning/weatherRoutes");
 
@@ -23,10 +26,22 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
   process.exit(1);
 }
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
+const configuredFrontendOrigins = (process.env.FRONTEND_URL || "http://localhost:5173")
+  .split(",")
+  .map(origin => origin.trim())
+  .filter(Boolean);
+const frontendOrigins = new Set(configuredFrontendOrigins);
+configuredFrontendOrigins.forEach(origin => {
+  if (/^https?:\/\/localhost(?::\d+)?$/i.test(origin)) {
+    frontendOrigins.add(origin.replace(/:\/\/localhost/i, "://127.0.0.1"));
+  } else if (/^https?:\/\/127\.0\.0\.1(?::\d+)?$/i.test(origin)) {
+    frontendOrigins.add(origin.replace("://127.0.0.1", "://localhost"));
+  }
+});
 app.disable("x-powered-by");
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-app.use(cors({ origin: (process.env.FRONTEND_URL || "http://localhost:5173").split(","), credentials: false }));
+app.use(cors({ origin: [...frontendOrigins], credentials: false }));
 app.use(express.json({ limit: "1mb" }));
 app.use("/uploads", express.static(path.resolve(process.env.UPLOAD_DIR || "uploads"), { dotfiles: "deny", index: false }));
 app.use("/api/", rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false }));
@@ -41,6 +56,9 @@ app.use("/api/healthcare",healthcareRoutes);
 app.use("/api/evacuation",evacuationRoutes);
 app.use("/api/warnings",warningRoutes);
 app.use("/api/relief",reliefRoutes);
+app.use("/api/relief-requests",verifyToken,reliefRequestRoutes);
+app.use("/api/announcements",announcementRoutes);
+app.use("/api/support",supportRoutes);
 app.use("/api/incidents",verifyToken,incidentRoutes);
 app.use("/api/assistance",verifyToken,assistanceRoutes);
 app.use("/api/ai-chat",aiRoutes);

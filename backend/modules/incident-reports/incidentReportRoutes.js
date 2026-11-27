@@ -1,7 +1,17 @@
 const express = require("express");
 const db = require("../../config/db");
 const upload = require("../../middleware/uploadMiddleware");
+const fs = require("fs");
 const router = express.Router();
+
+async function removeUploadedFiles(files = []) {
+  await Promise.all(files.map(async file => {
+    try { await fs.promises.unlink(file.path); }
+    catch (error) {
+      if (error.code !== "ENOENT") console.error("Incident photo cleanup error:", error);
+    }
+  }));
+}
 
 router.get("/", async (req, res) => {
   try {
@@ -14,11 +24,16 @@ router.get("/", async (req, res) => {
 });
 router.post("/", upload.array("photos", 5), async (req, res) => {
   const { title, description, category, location, barangay, incident_at, urgent_without_photo } = req.body;
-  if (!title || !description || !category || !location) return res.status(400).json({ message: "Title, description, category, and location are required." });
+  if (!title || !description || !category || !location) {
+    await removeUploadedFiles(req.files);
+    return res.status(400).json({ message: "Title, description, category, and location are required." });
+  }
   if (!req.files?.length && urgent_without_photo !== "true") return res.status(400).json({ message: "Attach a photo or mark this as an urgent report without photo evidence." });
   const status = req.files?.length ? "Pending" : "Unverified - Evidence Pending";
-  const connection = await db.getConnection();
+  let connection;
+  let committed = false;
   try {
+    connection = await db.getConnection();
     await connection.beginTransaction();
     const [result] = await connection.execute(
       "INSERT INTO incident_reports (user_id,title,description,category,location,barangay,incident_at,status) VALUES (?,?,?,?,?,?,?,?)",
@@ -29,9 +44,17 @@ router.post("/", upload.array("photos", 5), async (req, res) => {
       [result.insertId,file.filename,file.originalname,file.mimetype]
     );
     await connection.commit();
+    committed = true;
     res.status(201).json({ message: "Incident report submitted.", id: result.insertId, status });
-  } catch (error) { await connection.rollback(); console.error(error); res.status(500).json({ message: "Unable to submit report." }); }
-  finally { connection.release(); }
+  } catch (error) {
+    if (connection && !committed) {
+      try { await connection.rollback(); }
+      catch (rollbackError) { console.error("Incident transaction rollback error:", rollbackError); }
+    }
+    if (!committed) await removeUploadedFiles(req.files);
+    console.error(error);
+    res.status(500).json({ message: "Unable to submit report." });
+  } finally { connection?.release(); }
 });
 router.get("/:id/photos", async (req,res) => {
   try {

@@ -1,6 +1,6 @@
 const db = require("../../config/db");
 
-function createCrudRouter({ table, fields, searchFields = [], orderBy = "created_at DESC", publicRead = false }) {
+function createCrudRouter({ table, fields, searchFields = [], filterFields = [], orderBy = "created_at DESC", publicRead = false }) {
   const express = require("express");
   const router = express.Router();
   const verifyToken = require("../../middleware/auth");
@@ -16,6 +16,13 @@ function createCrudRouter({ table, fields, searchFields = [], orderBy = "created
       if (req.query.q && searchFields.length) {
         where.push(`(${searchFields.map(field => `${field} LIKE ?`).join(" OR ")})`);
         searchFields.forEach(() => values.push(`%${String(req.query.q).slice(0, 100)}%`));
+      }
+      for (const field of filterFields) {
+        const filterValue = req.query[field];
+        if (typeof filterValue === "string" && filterValue.trim()) {
+          where.push(`${field} = ?`);
+          values.push(filterValue.trim());
+        }
       }
       const sql = `SELECT id, ${columns} FROM ${table}${where.length ? ` WHERE ${where.join(" AND ")}` : ""} ORDER BY ${orderBy} LIMIT 250`;
       const [rows] = await db.execute(sql, values);
@@ -39,7 +46,10 @@ function createCrudRouter({ table, fields, searchFields = [], orderBy = "created
       const entries = Object.entries(req.body || {}).filter(([key, value]) => allowed.has(key) && value !== undefined);
       if (!entries.length) return res.status(400).json({ message: "Provide fields to update." });
       const [result] = await db.execute(`UPDATE ${table} SET ${entries.map(([key]) => `${key} = ?`).join(", ")} WHERE id = ?`, [...entries.map(([key, value]) => ((key.endsWith("_at") || key.endsWith("_date")) && value === "") ? null : value), req.params.id]);
-      if (!result.affectedRows) return res.status(404).json({ message: "Record not found." });
+      if (!result.affectedRows) {
+        const [matches] = await db.execute(`SELECT id FROM ${table} WHERE id = ?`, [req.params.id]);
+        if (!matches.length) return res.status(404).json({ message: "Record not found." });
+      }
       res.json({ message: "Record updated." });
     } catch (error) { console.error(`${table} update:`, error); res.status(500).json({ message: "Unable to update record." }); }
   });

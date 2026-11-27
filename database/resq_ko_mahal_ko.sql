@@ -7,8 +7,20 @@ CREATE TABLE IF NOT EXISTS users (
  email VARCHAR(190) NOT NULL UNIQUE,
  phone VARCHAR(30) NOT NULL,
  address VARCHAR(255) NOT NULL,
+ current_location VARCHAR(255) NULL,
+ emergency_contact_name VARCHAR(150) NULL,
+ emergency_contact_phone VARCHAR(30) NULL,
+ blood_type VARCHAR(3) NULL,
+ health_conditions TEXT NULL,
+ allergies TEXT NULL,
  password VARCHAR(255) NOT NULL,
  role ENUM('user','admin') NOT NULL DEFAULT 'user',
+  profile_picture VARCHAR(255) NULL,
+  theme ENUM('light','dark','system') NOT NULL DEFAULT 'system',
+  language ENUM('en','fil','ceb') NOT NULL DEFAULT 'en',
+  notification_preferences JSON NULL,
+  account_visible BOOLEAN NOT NULL DEFAULT TRUE,
+  location_sharing BOOLEAN NOT NULL DEFAULT FALSE,
  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
  INDEX idx_users_role(role)
 ) ENGINE=InnoDB;
@@ -142,11 +154,11 @@ CREATE TABLE IF NOT EXISTS moderation_logs (
 
 -- Safe, clearly labeled sample directory and public information records.
 INSERT INTO healthcare_facilities(name,facility_type,address,barangay,phone,operating_hours,latitude,longitude,services)
-SELECT 'Sample Community Health Center','Health Center','Replace with verified local address','Sample Barangay','Verify with LGU','Verify schedule',14.5547,121.0244,'Primary care; vaccination'
+SELECT 'Sample Community Health Center','Health Center','Replace with verified local address','Sample Barangay','Verify with LGU','Verify schedule',NULL,NULL,'Primary care; vaccination'
 WHERE NOT EXISTS (SELECT 1 FROM healthcare_facilities WHERE name='Sample Community Health Center');
 
 INSERT INTO evacuation_centers(name,address,barangay,facilities,contact_number,capacity,current_status,latitude,longitude)
-SELECT 'Sample Evacuation Center','Replace with verified local address','Sample Barangay','Restrooms; water station','Verify with LGU',100,'Unknown',14.5547,121.0244
+SELECT 'Sample Evacuation Center','Replace with verified local address','Sample Barangay','Restrooms; water station','Verify with LGU',100,'Unknown',NULL,NULL
 WHERE NOT EXISTS (SELECT 1 FROM evacuation_centers WHERE name='Sample Evacuation Center');
 
 INSERT INTO disaster_warnings(title,description,hazard_type,severity,status,source_name,source_url,area_name)
@@ -156,3 +168,62 @@ WHERE NOT EXISTS (SELECT 1 FROM disaster_warnings WHERE title='Sample warning re
 INSERT INTO relief_records(item_name,description,quantity_available,distribution_location,status)
 SELECT 'Sample hygiene kit','Demonstration data; confirm actual stock with the LGU.',0,'Confirm with local LGU','Unavailable'
 WHERE NOT EXISTS (SELECT 1 FROM relief_records WHERE item_name='Sample hygiene kit');
+
+-- Upgrade existing installations without replacing or deleting existing records.
+DROP PROCEDURE IF EXISTS upgrade_resq_user_preferences;
+DELIMITER //
+CREATE PROCEDURE upgrade_resq_user_preferences()
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'profile_picture') THEN
+        ALTER TABLE users ADD COLUMN profile_picture VARCHAR(255) NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'current_location') THEN
+        ALTER TABLE users ADD COLUMN current_location VARCHAR(255) NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'emergency_contact_name') THEN
+        ALTER TABLE users ADD COLUMN emergency_contact_name VARCHAR(150) NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'emergency_contact_phone') THEN
+        ALTER TABLE users ADD COLUMN emergency_contact_phone VARCHAR(30) NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'blood_type') THEN
+        ALTER TABLE users ADD COLUMN blood_type VARCHAR(3) NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'health_conditions') THEN
+        ALTER TABLE users ADD COLUMN health_conditions TEXT NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'allergies') THEN
+        ALTER TABLE users ADD COLUMN allergies TEXT NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'theme') THEN
+        ALTER TABLE users ADD COLUMN theme ENUM('light','dark','system') NOT NULL DEFAULT 'system';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'language') THEN
+        ALTER TABLE users ADD COLUMN language ENUM('en','fil','ceb') NOT NULL DEFAULT 'en';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'notification_preferences') THEN
+        ALTER TABLE users ADD COLUMN notification_preferences JSON NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'account_visible') THEN
+        ALTER TABLE users ADD COLUMN account_visible BOOLEAN NOT NULL DEFAULT TRUE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'location_sharing') THEN
+        ALTER TABLE users ADD COLUMN location_sharing BOOLEAN NOT NULL DEFAULT FALSE;
+    END IF;
+END //
+DELIMITER ;
+CALL upgrade_resq_user_preferences();
+DROP PROCEDURE upgrade_resq_user_preferences;
+
+-- Demonstration directory entries are not real locations; do not map their placeholder coordinates.
+UPDATE healthcare_facilities
+SET latitude = NULL, longitude = NULL
+WHERE name = 'Sample Community Health Center'
+  AND address = 'Replace with verified local address'
+  AND latitude = 14.5547 AND longitude = 121.0244;
+
+UPDATE evacuation_centers
+SET latitude = NULL, longitude = NULL
+WHERE name = 'Sample Evacuation Center'
+  AND address = 'Replace with verified local address'
+  AND latitude = 14.5547 AND longitude = 121.0244;
