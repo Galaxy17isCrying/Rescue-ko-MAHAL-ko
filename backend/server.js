@@ -22,8 +22,7 @@ const aiRoutes = require("./modules/ai-chat/aiChatRoutes");
 const weatherRoutes = require("./modules/map-warning/weatherRoutes");
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
-  console.error("JWT_SECRET must be set to a random secret of at least 32 characters.");
-  process.exit(1);
+  throw new Error("JWT_SECRET must be set to a random secret of at least 32 characters.");
 }
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -43,7 +42,8 @@ app.disable("x-powered-by");
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(cors({ origin: [...frontendOrigins], credentials: false }));
 app.use(express.json({ limit: "1mb" }));
-app.use("/uploads", express.static(path.resolve(process.env.UPLOAD_DIR || "uploads"), { dotfiles: "deny", index: false }));
+const uploadDir = process.env.UPLOAD_DIR || (process.env.VERCEL ? "/tmp/resq-uploads" : "uploads");
+app.use("/uploads", express.static(path.resolve(uploadDir), { dotfiles: "deny", index: false }));
 app.use("/api/", rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false }));
 app.get("/", (_req,res)=>res.json({message:"ResQ Ko, Mahal Ko API is running."}));
 app.get("/api/health", async(_req,res)=>{
@@ -64,4 +64,8 @@ app.use("/api/assistance",verifyToken,assistanceRoutes);
 app.use("/api/ai-chat",aiRoutes);
 app.use("/api/weather",weatherRoutes);
 app.use((err,_req,res,_next)=>{console.error(err);res.status(400).json({message:err.message || "Request failed."});});
-app.listen(PORT,()=>console.log(`ResQ backend running at http://localhost:${PORT}`));
+if (require.main === module) {
+  app.listen(PORT,()=>console.log(`ResQ backend running at http://localhost:${PORT}`));
+}
+
+module.exports = app;

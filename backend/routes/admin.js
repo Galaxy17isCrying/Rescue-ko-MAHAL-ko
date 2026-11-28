@@ -35,11 +35,11 @@ router.get("/charts", async (_req,res)=>{
   }});
  }catch(error){console.error("Admin dashboard charts error:",error);res.status(500).json({message:"Unable to load dashboard charts."});}
 });
-router.get("/users",async(_req,res)=>{
+router.get("/users",verifyAdmin,async(_req,res)=>{
  try{const [users]=await db.execute("SELECT id,full_name AS fullName,email,role,suspended_at AS suspendedAt,suspension_reason AS suspensionReason,created_at AS createdAt FROM users ORDER BY created_at DESC");res.json({users});}
  catch(e){res.status(500).json({message:"Unable to load users."});}
 });
-router.get("/users/:id",async(req,res)=>{
+router.get("/users/:id",verifyAdmin,async(req,res)=>{
  const userId=Number(req.params.id);
  if(!Number.isSafeInteger(userId)||userId<1)return res.status(400).json({message:"Invalid user id."});
  let connection;
@@ -72,7 +72,7 @@ router.get("/triage",async(_req,res)=>{
   res.json({items:items.slice(0,100)});
  }catch(error){console.error("Admin triage error:",error);res.status(500).json({message:"Unable to load the triage queue."});}
 });
-router.get("/activity",async(_req,res)=>{
+router.get("/activity",verifyAdmin,async(_req,res)=>{
  try{
   const [items]=await db.execute("SELECT l.id,l.record_type AS recordType,l.record_id AS recordId,l.action,l.reason,l.created_at AS createdAt,u.full_name AS performedBy FROM moderation_logs l JOIN users u ON u.id=l.performed_by ORDER BY l.created_at DESC LIMIT 25");
   res.json({items});

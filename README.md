@@ -73,6 +73,23 @@ npm run dev
 ```
 Open `http://localhost:5173`.
 
+### Deploy the frontend and backend to Vercel
+The frontend and Express API must be deployed as two Vercel projects. The frontend project should use `frontend` as its Root Directory. Create a second Vercel project from the same repository with `backend` as its Root Directory; `backend/api/[...path].js` exposes the Express API as a Vercel Function.
+
+Configure these environment variables on the **backend** Vercel project:
+- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME` for a remotely hosted MySQL database. `localhost` will not work from Vercel.
+- `DB_SSL=true` when required by the database provider, and `DB_CONNECTION_LIMIT=2` to keep serverless connections bounded.
+- `JWT_SECRET` as a new random secret of at least 32 characters.
+- `FRONTEND_URL` as the deployed frontend origin, for example `https://rescue-ko-mahal-ko-frontend.vercel.app`. Add any other production frontend alias as a comma-separated origin.
+- `GEMINI_API_KEY` and `GEMINI_MODEL=gemini-3.5-flash` for ResQ AI. Keep the key only on the backend; rotate it if it was exposed.
+- `UPLOAD_DIR=/tmp/resq-uploads` is an optional writable temporary upload directory. Vercel temporary storage is not durable; use object storage for photos in production.
+
+Apply the database schema and admin-workflow migration to the remote database before using the deployed API. Then verify `https://<backend-project>.vercel.app/api/health`.
+
+On the **frontend** Vercel project, set `VITE_API_URL=https://<backend-project>.vercel.app/api` for Production (and Preview if needed), then redeploy the frontend. The frontend defaults to `/api` in production if this variable is omitted, which works only when the API is served from the same origin.
+
+Do not use the local MySQL database or copy local credentials into Vercel. Restrict the hosted database to the backend provider where possible.
+
 ## Main pages
 - `/` public landing page
 - `/register` user registration

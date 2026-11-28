@@ -9,7 +9,7 @@ const verifyToken = require("../middleware/auth");
 const upload = require("../middleware/uploadMiddleware");
 
 const router = express.Router();
-const uploadDir = path.resolve(process.env.UPLOAD_DIR || "uploads");
+const uploadDir = path.resolve(process.env.UPLOAD_DIR || (process.env.VERCEL ? "/tmp/resq-uploads" : "uploads"));
 
 async function removeUpload(filePath) {
     try {

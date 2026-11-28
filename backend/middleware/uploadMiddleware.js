@@ -2,7 +2,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-const uploadDir = path.resolve(process.env.UPLOAD_DIR || "uploads");
+const uploadDir = path.resolve(process.env.UPLOAD_DIR || (process.env.VERCEL ? "/tmp/resq-uploads" : "uploads"));
 fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({

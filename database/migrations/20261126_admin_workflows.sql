@@ -1,7 +1,3 @@
-ALTER TABLE users MODIFY COLUMN role ENUM('user','admin','employee') NOT NULL DEFAULT 'user';
-ALTER TABLE users ADD COLUMN suspended_at TIMESTAMP NULL;
-ALTER TABLE users ADD COLUMN suspension_reason VARCHAR(255) NULL;
-
 CREATE TABLE IF NOT EXISTS relief_requests (
  id INT AUTO_INCREMENT PRIMARY KEY,
  user_id INT NOT NULL,
