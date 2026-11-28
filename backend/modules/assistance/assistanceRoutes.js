@@ -1,5 +1,6 @@
 const express = require("express");
 const db = require("../../config/db");
+const verifyStaff = require("../../middleware/auth").verifyStaff;
 const router = express.Router();
 router.get("/", async (req,res) => {
  try {
@@ -17,8 +18,7 @@ router.post("/", async (req,res) => {
   res.status(201).json({message:"Assistance request submitted.",id:r.insertId});
  } catch(e){res.status(500).json({message:"Unable to submit request."});}
 });
-router.patch("/:id/status", async(req,res)=>{
- if(req.user.role!=="admin") return res.status(403).json({message:"Admin access only."});
+router.patch("/:id/status", verifyStaff, async(req,res)=>{
  const allowed=["Pending","Accepted","In Progress","Completed","Rejected"];
  if(!allowed.includes(req.body.status)) return res.status(400).json({message:"Invalid status."});
  const notes=req.body.admin_notes===undefined?undefined:String(req.body.admin_notes).trim();

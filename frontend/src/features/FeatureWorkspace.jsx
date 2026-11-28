@@ -5,7 +5,7 @@ import MapView from "../components/MapView";
 import { geocodePlace, findHealthcare } from "../services/places";
 import { useLanguage } from "../i18n/LanguageContext";
 import AdminDashboardCharts from "../components/AdminDashboardCharts";
-import { AdminActivityPanel, AdminTriageQueue, AnnouncementPreview, AnnouncementsWorkspace, ReliefRequestIntake, ReliefRequestsWorkspace, SupportWorkspace } from "./AdminWorkflows";
+import { AdminActivityPanel, AdminAuditLog, AdminTriageQueue, AnnouncementPreview, AnnouncementsWorkspace, PasswordResetWorkspace, ReliefRequestIntake, ReliefRequestsWorkspace, SupportResponsesWorkspace, SupportWorkspace } from "./AdminWorkflows";
 import TyphoonHistoryWorkspace from "../components/TyphoonHistoryWorkspace";
 import "./featureWorkspace.css";
 
@@ -169,6 +169,7 @@ function DashboardOverview({admin,user,onNavigate}){
 
  return <section className="workspace dashboard-workspace">
   <div className="dashboard-welcome"><span className="dashboard-eyebrow"><ShieldAlert size={16}/>{t(admin?"ADMIN OPERATIONS":"COMMUNITY SAFETY DASHBOARD")}</span><h1>{admin?t("Admin overview"):`${t("Welcome")}, ${user?.fullName||t("community member")}!`}</h1><p>{t(admin?"Review urgent requests, account needs, and public updates.":"Your community safety dashboard. Get help, find verified resources, and stay informed.")}</p></div>
+  <AnnouncementPreview onNavigate={onNavigate}/>
   {!admin&&<section className="dashboard-emergency" aria-labelledby="dashboard-emergency-title"><span className="dashboard-emergency-icon" aria-hidden="true"><ShieldAlert size={22}/></span><div className="dashboard-emergency-copy"><h2 id="dashboard-emergency-title">{t("Need urgent help?")}</h2><p>{t("For life-threatening emergencies in the Philippines, call:")}</p><span className="dashboard-emergency-number"><strong>911</strong></span><p className="dashboard-emergency-instructions">{t("Follow instructions from local authorities.")}</p></div></section>}
   {admin&&<><AdminTriageQueue onNavigate={onNavigate}/><AdminActivityPanel/><AdminDashboardCharts/></>}
 
@@ -186,7 +187,6 @@ function DashboardOverview({admin,user,onNavigate}){
       </article>;
      })}</div>}
   </section>
-  <AnnouncementPreview onNavigate={onNavigate}/>
 
   <div className="dashboard-summary-grid">
    <section className="dashboard-section dashboard-weather-section" aria-labelledby="dashboard-weather-title">
@@ -215,7 +215,7 @@ function ActivityCard({item,t,onNavigate}){
  const date=dashboardDate(item.timestamp);
  return <article className="dashboard-activity-card"><span className="dashboard-activity-icon">{item.target==="assistance"?<HandHeart size={20}/>:<ClipboardList size={20}/>}</span><div className="dashboard-activity-copy"><span>{t(item.kind)}</span><h3>{item.title||t("Title not provided")}</h3><p><MapPin size={14}/>{item.location||t("Location not provided")}</p>{item.status&&<small>{t("Status")}: {item.status}</small>}<small><Clock3 size={14}/>{date||t("Time not provided")}</small><button type="button" className="dashboard-text-link" onClick={()=>onNavigate?.(item.target)}>{t("View")}<ArrowRight size={15}/></button></div></article>;
 }
-export default function FeatureWorkspace({feature,admin,user,onNavigate,onUserUpdate}){
+export default function FeatureWorkspace({feature,admin,employee,user,onNavigate,onUserUpdate}){
  const {t}=useLanguage();
  const [items,setItems]=useState([]),[loading,setLoading]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const [form,setForm]=useState({}),[photos,setPhotos]=useState([]),[urgent,setUrgent]=useState(false),[recordQuery,setRecordQuery]=useState(""),[mapQuery,setMapQuery]=useState(""),[facilityTypes,setFacilityTypes]=useState([]),[placeSuggestions,setPlaceSuggestions]=useState([]),[destinationSuggestions,setDestinationSuggestions]=useState([]);
@@ -224,6 +224,7 @@ export default function FeatureWorkspace({feature,admin,user,onNavigate,onUserUp
  const [osmItems,setOsmItems]=useState([]),[focus,setFocus]=useState(null),[mapStatus,setMapStatus]=useState(""),[mapBusy,setMapBusy]=useState(false),[radiusKm,setRadiusKm]=useState(5);
  const itemsRequest=useRef(0),mapRequest=useRef(0),routeRequest=useRef(0);
  const isAdmin=admin;
+ const isStaff=admin||employee;
  async function load(override){
   if(!config[feature])return;
   const requestId=++itemsRequest.current;
@@ -413,12 +414,15 @@ export default function FeatureWorkspace({feature,admin,user,onNavigate,onUserUp
   },()=>{setWeatherLoading(false);setError("Location permission was not granted. Search for a Philippine city instead.");});
  }
  if(feature==="profile")return <ProfileWorkspace user={user} onUserUpdate={onUserUpdate} onNavigate={onNavigate}/>;
+ if(feature==="support-responses")return (admin||employee)?<SupportResponsesWorkspace onNavigate={onNavigate}/>:null;
+ if(feature==="password-resets")return (admin||employee)?<PasswordResetWorkspace admin={admin}/>:null;
+ if(feature==="audit-log")return admin?<AdminAuditLog/>:null;
  if(feature==="settings")return <SettingsWorkspace user={user} onLogout={undefined}/>;
  if(feature==="announcements")return <AnnouncementsWorkspace admin={admin}/>;
- if(feature==="relief-requests")return admin?<ReliefRequestsWorkspace/>:null;
- if(feature==="overview")return <DashboardOverview admin={admin} user={user} onNavigate={onNavigate}/>;
+ if(feature==="relief-requests")return (admin||employee)?<ReliefRequestsWorkspace/>:null;
+ if(feature==="overview")return <DashboardOverview admin={admin||employee} user={user} onNavigate={onNavigate}/>;
  if(feature==="users")return <UserManagement/>;
- if(feature==="support")return <SupportWorkspace admin={admin} onNavigate={onNavigate}/>;
+ if(feature==="support")return <SupportWorkspace admin={admin||employee} onNavigate={onNavigate}/>;
  if(feature==="typhoons")return <TyphoonHistoryWorkspace onNavigate={onNavigate}/>;
  if(feature==="weather"){
   const current=weather?.currentWeather?.data?.current;
@@ -493,8 +497,8 @@ export default function FeatureWorkspace({feature,admin,user,onNavigate,onUserUp
     <div><b>{item.name||item.title||item.item_name||item.request_type}</b><p>{item.description||item.address||item.area_name||item.distribution_location||item.location}</p><small>{item.status||item.current_status||item.severity||item.facility_type||""} {item.barangay?`· ${item.barangay}`:""}{item.source==="osm"?" · OpenStreetMap":""}</small></div>
     {isAdmin&&item.source!=="osm"&&["healthcare","warnings","evacuation","relief"].includes(feature)&&<div className="admin-record-actions"><button className="text-button" onClick={()=>editRecord(item)}>Edit</button><button className="text-button danger" onClick={()=>deleteRecord(item.id)}>Delete</button></div>}
     {c.map&&hasCoordinates(item)&&<button type="button" className="text-button" onClick={()=>{setDestinationQuery(item.name||"");setDestination([Number(item.latitude),Number(item.longitude)]);setDestinationLabel(item.name||"");setDestinationSuggestions([]);setRouteRequested(false);setRouteInfo(null);}}> <Navigation size={15}/> {t("Set as destination")}</button>}
-    {feature==="incidents"&&<><button className="text-button" onClick={()=>viewEvidence(item.id)}>View evidence</button>{admin&&<div className="moderation"><input placeholder="Reason if rejected" value={moderation[item.id]||""} onChange={e=>setModeration({...moderation,[item.id]:e.target.value})}/>{["Verified","Under Review","Rejected","Resolved"].map(s=><button key={s} onClick={()=>moderate(item.id,s)}>{s}</button>)}</div>}</>}
-    {feature==="assistance"&&admin&&<select value={item.status} onChange={e=>updateRequest(item.id,e.target.value)}>{["Pending","Accepted","In Progress","Completed","Rejected"].map(s=><option key={s}>{s}</option>)}</select>}
+    {feature==="incidents"&&<><button className="text-button" onClick={()=>viewEvidence(item.id)}>View evidence</button>{isStaff&&<div className="moderation"><input placeholder="Reason if rejected" value={moderation[item.id]||""} onChange={e=>setModeration({...moderation,[item.id]:e.target.value})}/>{["Verified","Under Review","Rejected","Resolved"].map(s=><button key={s} onClick={()=>moderate(item.id,s)}>{s}</button>)}</div>}</>}
+    {feature==="assistance"&&isStaff&&<select value={item.status} onChange={e=>updateRequest(item.id,e.target.value)}>{["Pending","Accepted","In Progress","Completed","Rejected"].map(s=><option key={s}>{s}</option>)}</select>}
    </article>)}
   </div>
   {isAdmin&&["healthcare","warnings","evacuation","relief"].includes(feature)&&<form className="record-form" onSubmit={submit}><h3>{t(editingId?"Edit record":"Add new record")}</h3>{c.fields.map((name,i)=><Field key={name} name={name} label={t(c.labels[i])} value={form[name]} onChange={change} t={t}/>) }<button className="primary-button">{t(editingId?"Save changes":"Add record")}</button>{editingId&&<button type="button" className="secondary-button" onClick={()=>{setEditingId(null);setForm({});}}>{t("Cancel edit")}</button>}</form>}
@@ -503,6 +507,7 @@ export default function FeatureWorkspace({feature,admin,user,onNavigate,onUserUp
 function UserManagement(){
  const {t}=useLanguage();
  const [users,setUsers]=useState([]),[error,setError]=useState(""),[loading,setLoading]=useState(true),[query,setQuery]=useState(""),[selectedUser,setSelectedUser]=useState(null),[profileLoading,setProfileLoading]=useState(false),[profileError,setProfileError]=useState("");
+ const [notice,setNotice]=useState(""),[employeeForm,setEmployeeForm]=useState({fullName:"",email:"",phone:"",address:"",password:""});
  const profileRequestId=useRef(0);
  useEffect(()=>{
   let active=true;
@@ -522,13 +527,43 @@ function UserManagement(){
   finally{if(requestId===profileRequestId.current)setProfileLoading(false);}
  }
  function closeProfile(){profileRequestId.current+=1;setSelectedUser(null);setProfileLoading(false);}
+ async function createEmployee(event){
+  event.preventDefault();setError("");setNotice("");
+  if(!employeeForm.email.trim().toLowerCase().endsWith("@my.rescueko.ph")){setError("Employee email must use the @my.rescueko.ph domain.");return;}
+  try{await api.post("/admin/employees",employeeForm);setNotice("Employee account created.");setEmployeeForm({fullName:"",email:"",phone:"",address:"",password:""});const response=await api.get("/admin/users");setUsers(response.data.users||[]);}
+  catch(e){setError(e.response?.data?.message||"Unable to create employee account.");}
+ }
+ async function setSuspension(account){
+  const suspended=!account.suspendedAt;
+  const reason=suspended?window.prompt("Enter the reason for suspension:",""):"";
+  if(suspended&&!reason?.trim())return;
+  try{await api.post(`/admin/users/${account.id}/suspension`,{suspended,reason:reason?.trim()||""});setNotice(suspended?"Account suspended.":"Account unsuspended.");const response=await api.get("/admin/users");setUsers(response.data.users||[]);}
+  catch(e){setError(e.response?.data?.message||"Unable to update suspension.");}
+ }
+ async function resetPassword(account){
+  const password=window.prompt(`Enter a new password for ${account.fullName} (at least 8 characters):`);
+  if(!password)return;
+  if(password.length<8){setError("The new password must be at least 8 characters.");return;}
+  try{await api.post(`/admin/users/${account.id}/reset-password`,{newPassword:password});setNotice("User password reset successfully.");}
+  catch(e){setError(e.response?.data?.message||"Unable to reset password.");}
+ }
  return <section className="workspace users-workspace">
   <div className="workspace-heading"><div><h1>{t("User accounts")}</h1><p>{t("Find community accounts and review contact details.")}</p></div><span className="users-count">{users.length} {t("total")}</span></div>
   {error&&<div className="alert error" role="alert">{t(error)}</div>}
+  {notice&&<div className="alert success" role="status">{t(notice)}</div>}
+  <form className="record-form employee-create-form" onSubmit={createEmployee}>
+   <h2>{t("Create employee account")}</h2>
+   <label className="field">{t("Full name")}<input value={employeeForm.fullName} onChange={e=>setEmployeeForm({...employeeForm,fullName:e.target.value})} maxLength="150" required/></label>
+   <label className="field">{t("Employee email")}<input type="email" value={employeeForm.email} onChange={e=>setEmployeeForm({...employeeForm,email:e.target.value})} placeholder="name@my.rescueko.ph" maxLength="190" required/></label>
+   <label className="field">{t("Phone number")}<input value={employeeForm.phone} onChange={e=>setEmployeeForm({...employeeForm,phone:e.target.value})} maxLength="30" required/></label>
+   <label className="field">{t("Address")}<input value={employeeForm.address} onChange={e=>setEmployeeForm({...employeeForm,address:e.target.value})} maxLength="255" required/></label>
+   <label className="field">{t("Temporary password")}<input type="password" value={employeeForm.password} onChange={e=>setEmployeeForm({...employeeForm,password:e.target.value})} minLength="8" required/></label>
+   <button className="primary-button">{t("Create employee")}</button>
+  </form>
   <div className="users-summary" aria-label={t("Account summary")}><article><span>{t("Total accounts")}</span><strong>{loading?"—":users.length}</strong></article><article><span>{t("Community members")}</span><strong>{loading?"—":users.length-adminCount}</strong></article><article><span>{t("Administrators")}</span><strong>{loading?"—":adminCount}</strong></article></div>
   <section className="users-directory" aria-labelledby="users-directory-title">
    <div className="users-directory-heading"><div><h2 id="users-directory-title">{t("Account directory")}</h2><p>{loading?t("Loading accounts…"):`${filteredUsers.length} ${t("matching")} ${filteredUsers.length===1?t("account"):t("accounts")}`}</p></div><label className="users-search"><Search size={17} aria-hidden="true"/><span className="sr-only">{t("Search user accounts")}</span><input type="search" name="user-account-search" autoComplete="off" value={query} onChange={e=>setQuery(e.target.value)} placeholder={t("Search by name or role")}/></label></div>
-   {loading?<p className="users-empty" role="status">{t("Loading user accounts…")}</p>:filteredUsers.length===0?<p className="users-empty">{users.length?t("No matching accounts. Try another search."):t("No user accounts have been registered yet.")}</p>:<div className="users-table-scroll" role="region" aria-label={t("User account results")} tabIndex="0"><table className="users-table"><caption className="sr-only">{t("Registered ResQ Ko user accounts")}</caption><thead><tr><th scope="col">{t("Name")}</th><th scope="col">{t("Role")}</th><th scope="col">{t("Created")}</th><th scope="col">{t("Details")}</th></tr></thead><tbody>{filteredUsers.map(account=><tr key={account.id}><td data-label="Name"><b>{account.fullName}</b></td><td data-label="Role"><span className={`user-role-badge ${account.role==="admin"?"admin":"member"}`}>{t(account.role)}</span></td><td data-label="Created">{dashboardDate(account.createdAt)||"—"}</td><td data-label="Details">{account.role==="user"&&<button type="button" className="text-button" onClick={()=>openProfile(account)}>{t("View contact details")}</button>}</td></tr>)}</tbody></table></div>}
+   {loading?<p className="users-empty" role="status">{t("Loading user accounts…")}</p>:filteredUsers.length===0?<p className="users-empty">{users.length?t("No matching accounts. Try another search."):t("No user accounts have been registered yet.")}</p>:<div className="users-table-scroll" role="region" aria-label={t("User account results")} tabIndex="0"><table className="users-table"><caption className="sr-only">{t("Registered ResQ Ko user accounts")}</caption><thead><tr><th scope="col">{t("Name")}</th><th scope="col">{t("Role")}</th><th scope="col">{t("Created")}</th><th scope="col">{t("Details")}</th></tr></thead><tbody>{filteredUsers.map(account=><tr key={account.id}><td data-label="Name"><b>{account.fullName}</b>{account.suspendedAt&&<small className="account-suspended">{t("Suspended")}</small>}</td><td data-label="Role"><span className={`user-role-badge ${account.role==="admin"?"admin":account.role==="employee"?"employee":"member"}`}>{t(account.role)}</span></td><td data-label="Created">{dashboardDate(account.createdAt)||"—"}</td><td data-label="Details"><div className="account-admin-actions">{account.role==="user"&&<button type="button" className="text-button" onClick={()=>openProfile(account)}>{t("View contact details")}</button>}{account.role!=="admin"&&<><button type="button" className="text-button" onClick={()=>resetPassword(account)}>{t("Reset password")}</button><button type="button" className={`text-button${account.suspendedAt?"":" danger"}`} onClick={()=>setSuspension(account)}>{account.suspendedAt?t("Unsuspend"):t("Suspend")}</button></>}</div></td></tr>)}</tbody></table></div>}
   </section>
   {selectedUser&&<div className="profile-detail-backdrop" role="presentation" onClick={closeProfile}><section className="profile-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-profile-title" onClick={event=>event.stopPropagation()}><div className="admin-panel-heading"><h2 id="admin-profile-title">{t("User contact details")}</h2><button type="button" className="icon-button" onClick={closeProfile} aria-label={t("Close")}><X size={18}/></button></div>{profileLoading?<p role="status">{t("Loading contact details…")}</p>:profileError?<p className="admin-inline-error" role="alert">{t(profileError)}</p>:<><dl className="profile-detail-list"><div><dt>{t("Full name")}</dt><dd>{selectedUser.fullName||"—"}</dd></div><div><dt>{t("Email")}</dt><dd>{selectedUser.email||"—"}</dd></div><div><dt>{t("Phone")}</dt><dd>{selectedUser.phone||"—"}</dd></div><div><dt>{t("Address")}</dt><dd>{selectedUser.address||"—"}</dd></div><div><dt>{t("Account created")}</dt><dd>{dashboardDate(selectedUser.createdAt)||"—"}</dd></div></dl><p className="profile-detail-privacy">{t("Only basic contact details are available here. Health information is not shown. This access is recorded in the admin activity log.")}</p></>}</section></div>}
  </section>;

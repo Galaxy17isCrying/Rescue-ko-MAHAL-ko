@@ -58,12 +58,12 @@ router.post("/", upload.array("photos", 5), async (req, res) => {
 });
 router.get("/:id/photos", async (req,res) => {
   try {
-    const [rows] = await db.execute("SELECT p.* FROM incident_photos p JOIN incident_reports r ON r.id=p.report_id WHERE r.id=? AND (?='admin' OR r.user_id=?)", [req.params.id,req.user.role,req.user.id]);
+    const [rows] = await db.execute("SELECT p.* FROM incident_photos p JOIN incident_reports r ON r.id=p.report_id WHERE r.id=? AND (? IN ('admin','employee') OR r.user_id=?)", [req.params.id,req.user.role,req.user.id]);
     res.json({ photos: rows.map(p => ({...p, url: `/uploads/${p.file_name}`})) });
   } catch(e) { res.status(500).json({message:"Unable to load photos."}); }
 });
 router.patch("/:id/moderate", async (req,res) => {
-  if (req.user.role !== "admin") return res.status(403).json({message:"Admin access only."});
+  if (!["admin","employee"].includes(req.user.role)) return res.status(403).json({message:"Administrator or employee access only."});
   const { status, rejection_reason } = req.body;
   if (!["Verified","Rejected","Under Review","Resolved"].includes(status)) return res.status(400).json({message:"Invalid moderation status."});
   if (status === "Rejected" && !String(rejection_reason || "").trim()) return res.status(400).json({message:"A rejection reason is required."});

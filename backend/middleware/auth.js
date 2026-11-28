@@ -22,5 +22,13 @@ function verifyAdmin(req, res, next) {
     next();
 }
 
+function verifyStaff(req, res, next) {
+    if (!["admin", "employee"].includes(req.user.role)) {
+        return res.status(403).json({ message: "Administrator or employee access only." });
+    }
+    next();
+}
+
 module.exports = verifyToken;
 module.exports.verifyAdmin = verifyAdmin;
+module.exports.verifyStaff = verifyStaff;

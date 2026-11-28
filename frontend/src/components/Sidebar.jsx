@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Hospital, Siren, ClipboardList, TentTree, HandHeart, Package, CloudSun, Users, LayoutDashboard, ChevronLeft, ChevronRight, Megaphone, LifeBuoy, Wind } from "lucide-react";
+import { Hospital, Siren, ClipboardList, TentTree, HandHeart, Package, CloudSun, Users, LayoutDashboard, ChevronLeft, ChevronRight, Megaphone, LifeBuoy, Wind, ScrollText, Inbox, KeyRound } from "lucide-react";
 import { API_ORIGIN } from "../services/api";
 import { useLanguage } from "../i18n/LanguageContext";
 
@@ -12,16 +12,22 @@ function initials(name) {
     .join("");
 }
 
-export default function Sidebar({ admin, active, onSelect, open, onToggle, user }) {
+export default function Sidebar({ admin, employee, active, onSelect, open, onToggle, user }) {
   const { t } = useLanguage();
   const [mobile, setMobile] = useState(() => window.matchMedia("(max-width: 800px)").matches);
   const [sidebarHidden, setSidebarHidden] = useState(() => localStorage.getItem("resq_sidebar_hidden") === "true");
   const groups = admin
     ? [
       ["Dashboard", [["overview", "Overview", LayoutDashboard]]],
-      ["Accounts & support", [["users", "User accounts", Users], ["support", "Help & support", LifeBuoy]]],
+      ["Accounts & support", [["users", "User accounts", Users], ["support", "Help & support", LifeBuoy], ["password-resets", "Password resets", KeyRound], ["support-responses", "Support responses", Inbox], ["audit-log", "Audit log", ScrollText]]],
       ["Response", [["incidents", "Incident reports", ClipboardList], ["assistance", "Emergency assistance", HandHeart], ["relief-requests", "Relief requests", Package]]],
       ["Community services", [["announcements", "Announcements", Megaphone], ["healthcare", "Healthcare directory", Hospital], ["warnings", "Safety alerts", Siren], ["evacuation", "Evacuation centers", TentTree], ["relief", "Relief information", Package], ["weather", "Weather forecast", CloudSun], ["typhoons", "Typhoon history", Wind]]]
+    ]
+    : employee
+    ? [
+      ["Dashboard", [["overview", "Overview", LayoutDashboard]]],
+      ["Accounts & support", [["support", "Help & support", LifeBuoy], ["password-resets", "Password resets", KeyRound], ["support-responses", "Support responses", Inbox]]],
+      ["Response", [["incidents", "Incident reports", ClipboardList], ["assistance", "Emergency assistance", HandHeart], ["relief-requests", "Relief requests", Package]]]
     ]
     : [
       ["Dashboard", [["overview", "Overview", LayoutDashboard]]],
@@ -73,7 +79,7 @@ export default function Sidebar({ admin, active, onSelect, open, onToggle, user 
               ? <img src={user.profilePicture.startsWith("http") ? user.profilePicture : `${API_ORIGIN}${user.profilePicture}`} alt="" />
               : initials(user?.fullName)}
           </span>
-          <span className="sidebar-profile-copy"><b>{user?.fullName || t("My profile")}</b><small>{admin ? t("Administrator") : t("Account & health details")}</small></span>
+          <span className="sidebar-profile-copy"><b>{user?.fullName || t("My profile")}</b><small>{admin ? t("Administrator") : employee ? t("Employee") : t("Account & health details")}</small></span>
         </button>
       </div>
     </aside>

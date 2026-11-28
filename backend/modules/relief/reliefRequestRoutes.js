@@ -1,5 +1,6 @@
 const express = require("express");
 const db = require("../../config/db");
+const verifyStaff = require("../../middleware/auth").verifyStaff;
 
 const router = express.Router();
 const allowedCategories = new Set(["Food", "Drinking water", "Medicine", "Hygiene", "Infant supplies", "Shelter", "Clothing", "Other"]);
@@ -99,8 +100,7 @@ router.post("/", async (req, res) => {
     }
 });
 
-router.patch("/:id/status", async (req, res) => {
-    if (req.user.role !== "admin") return res.status(403).json({ message: "Admin access only." });
+router.patch("/:id/status", verifyStaff, async (req, res) => {
     const body = req.body || {};
     const status = String(body.status || "");
     const adminNotes = body.admin_notes === undefined ? undefined : String(body.admin_notes).trim();

@@ -17,6 +17,10 @@ router.post("/", limiter, async (req, res) => {
   try {
     const candidateModels = Array.from(new Set([
       (process.env.GEMINI_MODEL || "").trim(),
+      "gemini-3.5-flash",
+      "gemini-3.6-flash",
+      "gemini-2.5-flash",
+      "gemini-2.5-pro",
       "gemini-1.5-flash",
       "gemini-2.0-flash",
       "gemini-1.5-pro"
@@ -41,7 +45,7 @@ router.post("/", limiter, async (req, res) => {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
       for (let attempt = 0; attempt < 2; attempt++) {
-        response = await fetch(url, { ...requestOptions, signal: AbortSignal.timeout(20000) });
+        response = await fetch(url, { ...requestOptions, signal: AbortSignal.timeout(45000) });
         if (![500, 502, 503, 504].includes(response.status) || attempt === 1) break;
         await response.body?.cancel();
         await new Promise(resolve => setTimeout(resolve, 300));

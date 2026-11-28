@@ -2,6 +2,7 @@ const express = require("express");
 const db = require("../../config/db");
 const verifyToken = require("../../middleware/auth");
 const verifyAdmin = require("../../middleware/auth").verifyAdmin;
+const verifyStaff = require("../../middleware/auth").verifyStaff;
 
 const router = express.Router();
 const categories = new Set(["Complaint", "Technical issue", "Password/access help", "Other"]);
@@ -11,9 +12,9 @@ router.use(verifyToken);
 
 router.get("/", async (req, res) => {
     try {
-        if (req.user.role === "admin") {
+        if (["admin","employee"].includes(req.user.role)) {
             const [items] = await db.execute(
-                "SELECT t.id, t.user_id AS userId, u.full_name AS requesterName, t.category, t.subject, t.message, t.status, t.admin_reply AS adminReply, t.created_at AS createdAt, t.updated_at AS updatedAt FROM support_tickets t JOIN users u ON u.id = t.user_id ORDER BY FIELD(t.status,'Open','In Progress','Resolved'), t.updated_at DESC LIMIT 200",
+                "SELECT t.id, t.user_id AS userId, u.full_name AS requesterName, u.email AS requesterEmail, t.category, t.subject, t.message, t.status, t.admin_reply AS adminReply, t.created_at AS createdAt, t.updated_at AS updatedAt FROM support_tickets t JOIN users u ON u.id = t.user_id ORDER BY FIELD(t.status,'Open','In Progress','Resolved'), t.updated_at DESC LIMIT 200",
             );
             return res.json({ items });
         }
@@ -55,7 +56,7 @@ router.post("/", async (req, res) => {
     }
 });
 
-router.patch("/:id", verifyAdmin, async (req, res) => {
+router.patch("/:id", verifyStaff, async (req, res) => {
     const ticketId = Number(req.params.id);
     const status = String(req.body?.status || "");
     const adminReply = String(req.body?.adminReply || "").trim();

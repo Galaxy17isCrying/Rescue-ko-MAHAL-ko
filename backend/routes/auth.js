@@ -62,7 +62,7 @@ async function login(req, res, requiredRole) {
 
     try {
         const [rows] = await db.execute(
-            "SELECT id, full_name, email, phone, address, password, role FROM users WHERE email = ?",
+            "SELECT id, full_name, email, phone, address, password, role, suspended_at, suspension_reason FROM users WHERE email = ?",
             [email]
         );
 
@@ -71,8 +71,11 @@ async function login(req, res, requiredRole) {
         const account = rows[0];
         const passwordMatch = await bcrypt.compare(password, account.password);
 
-        if (!passwordMatch || account.role !== requiredRole) {
+        if (!passwordMatch || (Array.isArray(requiredRole) ? !requiredRole.includes(account.role) : account.role !== requiredRole)) {
             return res.status(401).json({ message: "Incorrect email or password." });
+        }
+        if (account.suspended_at) {
+            return res.status(403).json({ message: `This account is suspended.${account.suspension_reason ? ` Reason: ${account.suspension_reason}` : ""}` });
         }
 
         const token = jwt.sign(
@@ -105,7 +108,7 @@ const loginRules = [
 ];
 
 router.post("/login", loginRules, (req, res) => login(req, res, "user"));
-router.post("/admin/login", loginRules, (req, res) => login(req, res, "admin"));
+router.post("/admin/login", loginRules, (req, res) => login(req, res, ["admin", "employee"]));
 
 router.get("/me", verifyToken, async (req, res) => {
     try {

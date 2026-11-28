@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, ArrowRight, Bell, CalendarClock, CheckCircle2, Clock3, LifeBuoy, MapPin, Megaphone, PackageCheck, RefreshCw, Search, Send, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bell, CalendarClock, CheckCircle2, Clock3, LifeBuoy, MapPin, Megaphone, PackageCheck, RefreshCw, Search, Send, ShieldCheck, X, ScrollText, KeyRound } from "lucide-react";
 import api from "../services/api";
 import { useLanguage } from "../i18n/LanguageContext";
 
@@ -465,6 +465,147 @@ export function AnnouncementsWorkspace({ admin }) {
     );
 }
 
+export function PasswordResetWorkspace({ admin }) {
+    const { t } = useLanguage();
+    const [items, setItems] = useState([]);
+    const [searchDraft, setSearchDraft] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [notice, setNotice] = useState("");
+
+    async function load() {
+        setLoading(true);
+        setError("");
+        try {
+            const response = await api.get("/support");
+            setItems((response.data?.items || []).filter(item => item.category === "Password/access help"));
+        } catch (error) {
+            setError(messageFromError(error, "Unable to load password reset requests."));
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    useEffect(() => { load(); }, []);
+
+    async function resetPassword(ticket) {
+        if (!admin) return;
+        const password = window.prompt(`Enter a temporary password for ${ticket.requesterName} (at least 8 characters):`);
+        if (!password) return;
+        if (password.length < 8) {
+            setError("The temporary password must be at least 8 characters.");
+            return;
+        }
+        setError("");
+        setNotice("");
+        try {
+            await api.post(`/admin/users/${ticket.userId}/reset-password`, { newPassword: password });
+            await api.patch(`/support/${ticket.id}`, {
+                status: "Resolved",
+                adminReply: "Password reset completed by an administrator.",
+            });
+            setNotice(`Password reset completed for ${ticket.requesterName}.`);
+            await load();
+        } catch (error) {
+            setError(messageFromError(error, "Unable to reset the password."));
+        }
+    }
+
+    const filteredItems = items.filter(ticket => {
+        const query = searchQuery.trim().toLocaleLowerCase();
+        if (!query) return true;
+        return [ticket.requesterName, ticket.requesterEmail, ticket.subject, ticket.message, ticket.status]
+            .some(value => String(value || "").toLocaleLowerCase().includes(query));
+    });
+
+    return <section className="workspace password-reset-workspace">
+        <div className="workspace-heading">
+            <div><h1>{t("Password reset requests")}</h1><p>{t("Only password and account-access help requests appear on this page.")}</p></div>
+            <button type="button" className="secondary-button" onClick={load} disabled={loading}><RefreshCw size={16}/>{loading ? t("Loading…") : t("Refresh")}</button>
+        </div>
+        {error && <div className="alert error" role="alert">{t(error)}</div>}
+        {notice && <div className="alert success" role="status">{t(notice)}</div>}
+        <form className="password-reset-search" onSubmit={event => { event.preventDefault(); setSearchQuery(searchDraft); }}>
+            <label className="field">{t("Search password requests")}
+                <input type="search" value={searchDraft} onChange={event => setSearchDraft(event.target.value)} placeholder={t("Search name, email, subject, or status")} />
+            </label>
+            <button type="submit" className="secondary-button"><Search size={16}/>{t("Search")}</button>
+        </form>
+        {loading ? <div className="dashboard-state" role="status"><RefreshCw size={18}/>{t("Loading password requests…")}</div>
+            : filteredItems.length === 0 ? <div className="dashboard-state dashboard-state-empty"><KeyRound size={19}/><span>{t("No password reset requests match this page or search.")}</span></div>
+            : <div className="support-ticket-grid">{filteredItems.map(ticket => <article className="support-ticket-card" key={ticket.id}>
+                <div className="support-ticket-heading">
+                    <div><span className="support-ticket-category">{t("Password/access help")}</span><h3>{ticket.subject}</h3></div>
+                    <strong className={`support-ticket-status status-${String(ticket.status).toLowerCase().replace(/\s+/g, "-")}`}>{t(ticket.status === "Open" ? "Open request" : ticket.status)}</strong>
+                </div>
+                <p className="support-ticket-requester"><b>{t("Name")}:</b> {ticket.requesterName}</p>
+                {ticket.requesterEmail && <p className="support-ticket-requester"><b>{t("Email")}:</b> {ticket.requesterEmail}</p>}
+                <p className="support-ticket-message"><b>{t("Request")}:</b> {ticket.message}</p>
+                <small>{t("Submitted")}: {dateLabel(ticket.createdAt, t)}</small>
+                {admin && ticket.status !== "Resolved" && <button type="button" className="primary-button" onClick={() => resetPassword(ticket)}><KeyRound size={15}/>{t("Reset password")}</button>}
+            </article>)}</div>}
+    </section>;
+}
+
+export function SupportResponsesWorkspace({ onNavigate }) {
+    const { t } = useLanguage();
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+        let active = true;
+        api.get("/support")
+            .then(response => { if (active) setItems((response.data?.items || []).filter(item => item.status === "In Progress")); })
+            .catch(error => { if (active) setError(messageFromError(error, "Unable to load support responses.")); })
+            .finally(() => { if (active) setLoading(false); });
+        return () => { active = false; };
+    }, []);
+
+    return <section className="workspace support-responses-workspace">
+        <div className="workspace-heading"><div><h1>{t("Support responses")}</h1><p>{t("Cases currently assigned to staff and under review.")}</p></div></div>
+        {error && <div className="alert error" role="alert">{t(error)}</div>}
+        {loading ? <div className="dashboard-state" role="status"><RefreshCw size={18}/>{t("Loading responses…")}</div>
+            : items.length === 0 ? <div className="dashboard-state dashboard-state-empty"><LifeBuoy size={19}/><span>{t("There are no support cases currently in progress.")}</span></div>
+            : <div className="support-ticket-grid">{items.map(ticket => <article className="support-ticket-card" key={ticket.id}>
+                <div className="support-ticket-heading"><div><span className="support-ticket-category">{t(ticket.category)}</span><h3>{ticket.subject}</h3></div><strong className="support-ticket-status status-in-progress">{t("In Progress")}</strong></div>
+                <p className="support-ticket-requester"><b>{t("Name")}:</b> {ticket.requesterName}</p>
+                <p className="support-ticket-message"><b>{t("Issue")}:</b> {ticket.message}</p>
+                <small>{t("Submitted")}: {dateLabel(ticket.createdAt, t)}</small>
+                {ticket.adminReply && <div className="support-ticket-reply"><b>{t("Current reply")}</b><p>{ticket.adminReply}</p></div>}
+                <button type="button" className="text-button" onClick={() => onNavigate?.("support")}>{t("Open support inbox")} <ArrowRight size={14}/></button>
+            </article>)}</div>}
+    </section>;
+}
+
+export function AdminAuditLog() {
+    const { t } = useLanguage();
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    useEffect(() => {
+        let active = true;
+        api.get("/admin/activity")
+            .then(response => { if (active) setItems(response.data?.items || []); })
+            .catch(error => { if (active) setError(messageFromError(error, "Unable to load audit log.")); })
+            .finally(() => { if (active) setLoading(false); });
+        return () => { active = false; };
+    }, []);
+    return <section className="workspace audit-log-workspace">
+        <div className="workspace-heading"><div><h1>{t("Audit log")}</h1><p>{t("Administrative and employee actions recorded by the system.")}</p></div></div>
+        {error && <div className="alert error" role="alert">{t(error)}</div>}
+        {loading ? <div className="dashboard-state" role="status"><RefreshCw size={18}/>{t("Loading audit log…")}</div>
+            : items.length === 0 ? <div className="dashboard-state dashboard-state-empty"><ScrollText size={19}/><span>{t("No administrator actions have been recorded yet.")}</span></div>
+            : <div className="audit-log-list">{items.map(item => <article className="audit-log-card" key={item.id}>
+                <div><b>{item.performedBy}</b><span>{t(item.action)}</span></div>
+                <small>{item.recordType} #{item.recordId}</small>
+                {item.reason && <p>{item.reason}</p>}
+                <time>{dateLabel(item.createdAt, t)}</time>
+            </article>)}</div>}
+    </section>;
+}
+
 export function SupportWorkspace({ admin, onNavigate }) {
     const { t } = useLanguage();
     const statusLabel = status => t(status === "Open" ? "Open request" : status);
@@ -472,6 +613,9 @@ export function SupportWorkspace({ admin, onNavigate }) {
     const [form, setForm] = useState({ category: "Complaint", subject: "", message: "" });
     const [replies, setReplies] = useState({});
     const [statuses, setStatuses] = useState({});
+    const [categoryFilter, setCategoryFilter] = useState("All");
+    const [searchDraft, setSearchDraft] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [updatingId, setUpdatingId] = useState(null);
@@ -531,6 +675,15 @@ export function SupportWorkspace({ admin, onNavigate }) {
         }
     }
 
+    const filteredItems = items.filter(ticket => {
+        if (admin && categoryFilter !== "All" && ticket.category !== categoryFilter) return false;
+        if (!admin) return true;
+        const query = searchQuery.trim().toLocaleLowerCase();
+        if (!query) return true;
+        return [ticket.requesterName, ticket.category, ticket.subject, ticket.message, ticket.status]
+            .some(value => String(value || "").toLocaleLowerCase().includes(query));
+    });
+
     return (
         <section className="workspace support-workspace">
             <div className="workspace-heading">
@@ -556,11 +709,25 @@ export function SupportWorkspace({ admin, onNavigate }) {
             <section className="support-ticket-list" aria-labelledby="support-ticket-list-title">
                 <div className="admin-panel-heading">
                     <h2 id="support-ticket-list-title">{t(admin ? "Support inbox" : "Your support requests")}</h2>
-                    <span>{items.length} {t("requests")}</span>
+                    <span>{filteredItems.length} {t("requests")}</span>
                 </div>
+                {admin && <div className="support-inbox-controls">
+                    <label className="field">{t("Filter request type")}
+                        <select value={categoryFilter} onChange={event => setCategoryFilter(event.target.value)}>
+                            <option value="All">{t("All requests")}</option>
+                            {["Password/access help", "Complaint", "Technical issue", "Other"].map(category => <option key={category} value={category}>{t(category)}</option>)}
+                        </select>
+                    </label>
+                    <form className="support-search-form" onSubmit={event => { event.preventDefault(); setSearchQuery(searchDraft); }}>
+                        <label className="field">{t("Search support")}
+                            <input type="search" value={searchDraft} onChange={event => setSearchDraft(event.target.value)} placeholder={t("Search name, issue, status, or subject")} />
+                        </label>
+                        <button type="submit" className="secondary-button"><Search size={16}/>{t("Search")}</button>
+                    </form>
+                </div>}
                 {loading ? <div className="dashboard-state" role="status"><RefreshCw size={18} />{t("Loading support requests…")}</div>
-                    : items.length === 0 ? <div className="dashboard-state dashboard-state-empty"><LifeBuoy size={19} /><span>{t(admin ? "There are no support requests yet." : "You have not sent a support request yet.")}</span></div>
-                        : <div className="support-ticket-grid">{items.map(ticket => (
+                    : filteredItems.length === 0 ? <div className="dashboard-state dashboard-state-empty"><LifeBuoy size={19} /><span>{t(admin ? "No support requests match this filter." : "You have not sent a support request yet.")}</span></div>
+                        : <div className="support-ticket-grid">{filteredItems.map(ticket => (
                             <article className="support-ticket-card" key={ticket.id}>
                                 <div className="support-ticket-heading">
                                     <div><span className="support-ticket-category">{t(ticket.category)}</span><h3>{ticket.subject}</h3></div>

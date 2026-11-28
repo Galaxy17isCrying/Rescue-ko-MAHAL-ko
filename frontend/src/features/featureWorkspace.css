@@ -17,11 +17,11 @@
 .map-search-controls .field{flex:1 1 210px}
 .map-search-controls>button{margin-bottom:1px}
 .map-empty{margin:0;padding:12px 14px;background:#fff8eb;color:#705019;border:1px solid #f5d9a8;border-radius:0 0 10px 10px;font-size:13px;line-height:1.5}\n
-.healthcare-explorer{margin:18px 0;padding:18px;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:0 6px 20px rgba(40,28,25,.04)}
-.healthcare-search-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px}
+.healthcare-explorer{margin:18px 0;padding:20px;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:0 6px 20px rgba(40,28,25,.04)}
+.healthcare-search-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:16px}
 .healthcare-search-form .field,.healthcare-map-tools .field{min-width:0;margin:0}
 .healthcare-search-form .primary-button{white-space:nowrap}
-.healthcare-map-tools{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:12px}
+.healthcare-map-tools{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-top:16px}
 .healthcare-map-tools>.field{flex:0 0 170px}
 .healthcare-place-results{max-height:250px;overflow:auto;margin-top:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
 .healthcare-place-results h3{margin:0;padding:12px 14px;color:var(--text);font-size:14px}
@@ -418,6 +418,18 @@
 .admin-inline-empty,.admin-inline-error{margin:8px 0;color:var(--muted);font-size:13px;line-height:1.5}
 .admin-inline-error{color:#bd3030}
 .announcement-preview-grid,.announcement-list-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.employee-create-form{margin:18px 0}
+.account-admin-actions{display:flex;flex-wrap:wrap;gap:6px}
+.account-suspended{display:block;margin-top:4px;color:#b42318;font-weight:800}
+.audit-log-list{display:grid;gap:10px}
+.audit-log-card{display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:8px 16px;padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.audit-log-card div{display:flex;gap:8px;align-items:center}
+.audit-log-card small,.audit-log-card time{color:var(--muted)}
+.audit-log-card p{grid-column:1/-1;margin:0;color:var(--text)}
+.support-inbox-controls{display:grid;grid-template-columns:minmax(180px,220px) minmax(0,1fr);align-items:end;gap:12px;margin:14px 0}
+.support-search-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px}
+.support-search-form .field{margin:0}
+.support-inbox-controls>.field{margin:0}
 .announcement-card{display:grid;align-content:start;gap:9px;min-width:0;padding:16px;border:1px solid var(--border);border-radius:13px;background:var(--surface);color:var(--text)}
 .announcement-card.severity-emergency{border-left:4px solid #d64545}
 .announcement-card.severity-urgent{border-left:4px solid #d78a37}
@@ -521,6 +533,10 @@
 .route-destination-marker{border:0;background:transparent}
 .route-destination-marker span{display:block;width:18px;height:18px;border:3px solid #fff;border-radius:50%;background:#dc2626;box-shadow:0 1px 5px #172b3b80}
 @media(max-width:620px){.route-planner{grid-template-columns:1fr}.route-planner>.primary-button{width:100%}}
+@media(max-width:620px){.support-inbox-controls,.support-search-form{grid-template-columns:1fr}.support-search-form>.secondary-button{width:100%}}
+.password-reset-search{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px;margin:14px 0}
+.password-reset-search .field{margin:0}
+@media(max-width:620px){.password-reset-search{grid-template-columns:1fr}.password-reset-search>.secondary-button{width:100%}}
 
 /* ==========================================================================
    Typhoon History & Map Workspace Styles
